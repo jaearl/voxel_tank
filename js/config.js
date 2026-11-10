@@ -21,6 +21,7 @@ const CFG_SCHEMA = [
   { k: 'maxTurrets', label: 'Turret limit (each side)', min: 0, max: 12, step: 1, def: 6 },
   { k: 'maxSquad', label: 'Squad limit (each side)', min: 0, max: 20, step: 1, def: 4 },
   { k: 'healCost', label: 'Repair cost (scrap per 10 armour)', min: 0, max: 20, step: 1, def: 4 },
+  { k: 'upgradeCost', label: 'Upgrade cost (level 1; level 2 is double, level 3 triple)', min: 10, max: 300, step: 10, def: 60 },
   { k: 'respawnTime', label: 'Commander respawn delay (seconds)', min: 0, max: 180, step: 5, def: 60 },
   { k: 'flagsToWin', label: 'Flag captures to win', min: 1, max: 10, step: 1, def: 3 },
 ];

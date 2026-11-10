@@ -86,6 +86,10 @@ class Commander extends Bot {
     const nT = A.turretsOf(F).length;
     const wantT = nT < CFG.maxTurrets && F.scrap >= CFG.turretCost * (nT < 4 ? 1 : 2.5);   // extra turrets only when flush
     const wantW = !wantT && F.walls < 5 && nT >= Math.min(CFG.maxTurrets, 2) && F.scrap >= CFG.wallCost + CFG.turretCost * 0.4;
+    // tank upgrades once the base has a couple of turrets: cheapest level first, keeping turret money back
+    let upK = null, upC = 1e9;
+    for (const k of ['armour', 'gun', 'loader', 'engine']) { const c = A.upCost(F, k); if (c < upC) { upC = c; upK = k; } }
+    const wantU = !!upK && nT >= Math.min(CFG.maxTurrets, 2) && F.scrap >= upC + (nT < Math.min(CFG.maxTurrets, 4) ? CFG.turretCost : 0);
     const room = squad.length < CFG.maxSquad;
     const rec = room ? A.recruitable(F, 130) : null;
 
@@ -124,6 +128,9 @@ class Commander extends Bot {
           }
         }
       }
+    } else if (wantU) {
+      this._set('build', hs, 6);          // upgrades are fitted at home
+      if (dHome < 18) A.upgrade(F, upK);
     } else if (ctf) this._set('flag', ctf[1], ctf[2]);
     else if (this.attackLeft > 0 && hpF > 0.45) {
       // go for the commander; if he's dead, knock down his nearest turret; failing that, sit on his base

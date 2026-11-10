@@ -42,6 +42,8 @@
   #build span { padding: 6px 12px; background: rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.2); white-space: nowrap; }
   #build span.on { border-color: #9fe870; color: #9fe870; background: rgba(30,50,20,.7); }
   #build b { color: #9fe870; }
+  #upg { position: absolute; left: 50%; top: 26%; transform: translateX(-50%); display: none; white-space: pre; font-size: 14px;
+    line-height: 1.7; padding: 12px 18px; background: rgba(10,14,16,.78); border: 1px solid #9fe870; }
   #prompt { position: absolute; left: 50%; top: calc(50% + 52px); transform: translateX(-50%); display: none;
     padding: 5px 12px; background: rgba(0,0,0,.5); font-size: 14px; white-space: nowrap; }
   #msg { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); font-size: 17px; text-align: center;
@@ -99,15 +101,16 @@
   <div id="goal"></div>
   <div id="msg"></div>
   <div id="prompt"></div>
+  <div id="upg"></div>
   <div id="hp"><div id="hpfill"></div></div>
   <div id="stats"></div>
   <div id="info">0 km/h</div>
   <div id="fps"></div>
-  <div id="build"><span id="b1"></span><span id="b2"></span><span id="b3"></span></div>
+  <div id="build"><span id="b1"></span><span id="b2"></span><span id="b3"></span><span id="b4"><b>U</b> Upgrades</span></div>
   <div id="help">
     <b>W A S D</b> drive &nbsp; <b>Mouse</b> aim &nbsp; <b>Left click</b> fire / place<br>
     <b>1</b> wall &nbsp; <b>2</b> turret &nbsp; <b>R</b> rotate &nbsp; <b>Q</b> cancel &nbsp; <b>H</b> repair<br>
-    <b>E</b> recruit &nbsp; <b>F</b> follow &nbsp; <b>G</b> defend spot<br>
+    <b>E</b> recruit &nbsp; <b>F</b> follow &nbsp; <b>G</b> defend spot &nbsp; <b>U</b> upgrades<br>
     <b>Wheel</b> zoom &nbsp; <b>P</b> shadows &nbsp; <b>Esc</b> pause / settings
   </div>
 </div>
@@ -138,6 +141,7 @@
       <div><span>1 / 2</span>build a wall / gun turret where you aim</div>
       <div><span>R / Q</span>rotate the wall / cancel building</div>
       <div><span>H</span>repair with scrap (you can't move meanwhile)</div>
+      <div><span>U</span>tank upgrades, at your home base</div>
       <div><span>E</span>recruit a knocked-out tank beside you</div>
       <div><span>F / G</span>squad: follow me / defend where I aim</div>
       <div><span>Wheel</span>zoom the camera</div>

@@ -39,8 +39,9 @@ class Effects {
   }
 
   // side: whose shell it is ('blue' | 'red'); it passes through targets on its own side
-  fireShell(p, d, side = 'blue', speed = 150) {
-    this.shells.push({ x: p[0], y: p[1], z: p[2], vx: d[0] * speed, vy: d[1] * speed, vz: d[2] * speed, life: 4, side });
+  // mul: damage multiplier (gun upgrades)
+  fireShell(p, d, side = 'blue', speed = 150, mul = 1) {
+    this.shells.push({ x: p[0], y: p[1], z: p[2], vx: d[0] * speed, vy: d[1] * speed, vz: d[2] * speed, life: 4, side, mul });
   }
 
   // dark smoke from a knocked-out tank

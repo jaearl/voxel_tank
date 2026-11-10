@@ -203,7 +203,7 @@ class Bot {
         const v = V3.norm(V3.sub(aim, T.gunPivot));
         if (V3.dot(v, T.gf) > 0.9993) {
           const shot = T.fire();
-          if (shot) { G.effects.muzzleFlash(shot.pos, shot.dir); G.effects.fireShell(shot.pos, shot.dir, T.side); this._rollErr(); }
+          if (shot) { G.effects.muzzleFlash(shot.pos, shot.dir); G.effects.fireShell(shot.pos, shot.dir, T.side, BOT.SHELL_SPEED, T.dmgMul || 1); this._rollErr(); }
         }
       }
     } else {

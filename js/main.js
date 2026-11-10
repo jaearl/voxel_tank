@@ -7,6 +7,7 @@
   const overlay = $('overlay'), goBtn = $('go');
   const gunMark = $('gunmark'), reloadFill = $('reloadfill'), infoEl = $('info'), fpsEl = $('fps');
   const hpFill = $('hpfill'), statsEl = $('stats'), foeEl = $('foe'), msgEl = $('msg'), promptEl = $('prompt');
+  const b4 = $('b4'), upEl = $('upg');
   const b1 = $('b1'), b2 = $('b2'), b3 = $('b3'), tagsEl = $('tags'), mapEl = $('map'), goalEl = $('goal');
 
   let renderer;
@@ -39,6 +40,7 @@
   let maxCrates = 28;
 
   let buildMode = null, wallFlip = false, plan = null;
+  let upOpen = false;                     // upgrade panel showing (number keys buy instead of build)
   let over = false;                       // someone has won: the fighting stops
   let flags = null;                       // capture the flag: { blue: flag, red: flag }
   const score = { blue: 0, red: 0 };
@@ -87,7 +89,8 @@
 
   // ------------------------------------------------------------------ factions
   function makeFaction(side, cmdTeam, squadTeam, home) {
-    const F = { side, cmdTeam, squadTeam, home, cmd: null, ai: null, scrap: CFG.startScrap, healing: false, deadT: 0, walls: 0 };
+    const F = { side, cmdTeam, squadTeam, home, cmd: null, ai: null, scrap: CFG.startScrap, healing: false, deadT: 0, walls: 0,
+      up: { armour: 0, loader: 0, engine: 0, gun: 0 } };
     factions.push(F);
     return F;
   }
@@ -145,6 +148,8 @@
       recruitable: recruitableFor,
       recruit: F => { const b = recruitableFor(F, BOT.RECRUIT_RANGE); return !!b && doRecruit(F, b); },
       setHeal: (F, on) => { F.healing = on; },
+      upCost: (F, k) => (F.up[k] >= UP_MAX ? 1e9 : upCost(F, k)),
+      upgrade: (F, k) => buyUpgrade(F, k) === '',
       build(F, kind, x, z, alongX) {
         if (Math.hypot(x - F.cmd.x, z - F.cmd.z) > BUILD_RANGE) return false;
         const bx = Math.floor(x), bz = Math.floor(z);
@@ -296,7 +301,7 @@
     if (!ready) return;
     for (const F of factions) {
       const c = F.cmd;
-      if (c.maxHp !== CFG.playerHp) { c.hp = c.hp / c.maxHp * CFG.playerHp; c.maxHp = CFG.playerHp; }
+      applyUpgrades(F);
     }
   }
   function startGame() {
@@ -336,8 +341,14 @@
     if (e.code === 'KeyP') renderer.shadowsOn = !renderer.shadowsOn;
     if (locked && e.code.startsWith('Arrow')) e.preventDefault();
     if (!(locked || window.__sim) || !ready) return;
-    if (e.code === 'Digit1') buildMode = buildMode === 'wall' ? null : 'wall';
-    if (e.code === 'Digit2') buildMode = buildMode === 'turret' ? null : 'turret';
+    if (upOpen) {       // panel open: 1-4 buy upgrades
+      const i = ['Digit1', 'Digit2', 'Digit3', 'Digit4'].indexOf(e.code);
+      if (i >= 0) { const U = UPGRADES[i], why = buyUpgrade(blue, U.k); say(why || U.name + ' upgraded to level ' + blue.up[U.k], 2.5); }
+    } else {
+      if (e.code === 'Digit1') buildMode = buildMode === 'wall' ? null : 'wall';
+      if (e.code === 'Digit2') buildMode = buildMode === 'turret' ? null : 'turret';
+    }
+    if (e.code === 'KeyU') toggleUpgrades();
     if (e.code === 'KeyQ') buildMode = null;
     if (e.code === 'KeyR') wallFlip = !wallFlip;
     if (e.code === 'KeyE') recruit();
@@ -412,6 +423,47 @@
     });
     effects.burst([x, world.groundAt(x, z, world.sy).h + 1, z], 110, 190, 255, 20);
     say(who.length > 1 ? who.length + ' tanks defending that spot' : 'Tank defending that spot');
+  }
+
+  // ------------------------------------------------------------------ tank upgrades
+  // Each commander can fit up to three levels of each, at its own home base, paid for in scrap.
+  const UP_MAX = 3, UP_RANGE = 22;
+  const UPGRADES = [
+    { k: 'armour', name: 'Armour', per: '+25% armour' },
+    { k: 'loader', name: 'Autoloader', per: '-15% reload time' },
+    { k: 'engine', name: 'Engine', per: '+12% top speed' },
+    { k: 'gun', name: 'Gun', per: '+20% shell damage' },
+  ];
+  const upCost = (F, k) => CFG.upgradeCost * (F.up[k] + 1);
+  const atHome = F => Math.hypot(F.cmd.x - F.home.x, F.cmd.z - F.home.z) < UP_RANGE;
+
+  // Put a faction's upgrade levels (and the armour setting) onto its commander tank.
+  function applyUpgrades(F) {
+    const c = F.cmd, u = F.up, max = Math.round(CFG.playerHp * (1 + 0.25 * u.armour));
+    if (c.maxHp !== max) { c.hp = max > c.maxHp ? c.hp + (max - c.maxHp) : Math.min(c.hp, max); c.maxHp = max; }
+    c.reloadTime = 2.2 * (1 - 0.15 * u.loader);
+    c.maxFwd = 10 * (1 + 0.12 * u.engine); c.maxRev = 4.5 * (1 + 0.12 * u.engine);
+    c.dmgMul = 1 + 0.2 * u.gun;
+  }
+
+  // Returns '' when bought, otherwise the reason it couldn't be.
+  function buyUpgrade(F, k) {
+    if (!F.cmd.alive) return 'Not now';
+    if (!atHome(F)) return 'Upgrades are fitted at your home base';
+    if (F.up[k] >= UP_MAX) return 'Already at the top level';
+    const cost = upCost(F, k);
+    if (F.scrap < cost) return 'Not enough scrap (need ' + cost + ')';
+    F.scrap -= cost; F.up[k]++;
+    applyUpgrades(F);
+    effects.burst([F.cmd.x, F.cmd.y + 2.5, F.cmd.z], 255, 220, 120, 30);
+    return '';
+  }
+
+  function toggleUpgrades() {
+    if (upOpen) { upOpen = false; return; }
+    if (blue.deadT > 0) return;
+    if (!atHome(blue)) { say('Upgrades are fitted at your home base (green ring on the map)', 3); return; }
+    upOpen = true; buildMode = null;
   }
 
   // ------------------------------------------------------------------ repairs
@@ -582,10 +634,10 @@
     for (const e of ents) {
       if (!e.alive || e.side === shell.side) continue;
       let dmg = 0;
-      if (target && e === target.ref) dmg = CFG.damage;
+      if (target && e === target.ref) dmg = CFG.damage * (shell.mul || 1);
       else {
         const h = e.hitPos(), sd = Math.hypot(h[0] - p[0], h[1] - p[1], h[2] - p[2]);
-        if (sd < SPLASH_R) dmg = CFG.damage * 0.47 * (1 - sd / SPLASH_R);
+        if (sd < SPLASH_R) dmg = CFG.damage * (shell.mul || 1) * 0.47 * (1 - sd / SPLASH_R);
       }
       if (dmg > 0.5) damage(e, dmg, shell);
     }
@@ -804,7 +856,7 @@
         if (buildMode) { if (fireQueued) tryBuild(); }
         else if (fireQueued || fireHeld) {
           const shot = tank.fire();
-          if (shot) { effects.muzzleFlash(shot.pos, shot.dir); effects.fireShell(shot.pos, shot.dir, 'blue'); shake = Math.max(shake, 0.18); }
+          if (shot) { effects.muzzleFlash(shot.pos, shot.dir); effects.fireShell(shot.pos, shot.dir, 'blue', 150, tank.dmgMul || 1); shake = Math.max(shake, 0.18); }
         }
         const sp = Math.abs(tank.speed);
         if (sp > 1.5) for (const p of tank.trackDustPoints()) effects.dust(p, sp / tank.maxFwd * 0.6);
@@ -938,9 +990,11 @@
     const hp = Math.max(0, tank.hp / tank.maxHp);
     hpFill.style.width = (hp * 100) + '%';
     hpFill.style.background = hp > 0.5 ? '#9fe870' : hp > 0.25 ? '#f0b040' : '#ff5a48';
-    statsEl.textContent = 'Scrap ' + Math.floor(blue.scrap) + '   Turrets ' + turretsOf(blue).length + '/' + CFG.maxTurrets + '   Squad ' + squadOf(blue).length + '/' + CFG.maxSquad;
+    statsEl.textContent = 'Scrap ' + Math.floor(blue.scrap) + '   Turrets ' + turretsOf(blue).length + '/' + CFG.maxTurrets + '   Squad ' + squadOf(blue).length + '/' + CFG.maxSquad +
+      '   Upgrades ' + (blue.up.armour + blue.up.loader + blue.up.engine + blue.up.gun) + '/' + UP_MAX * 4;
     foeEl.textContent = red ? 'Enemy commander: ' + (red.cmd.alive ? 'armour ' + Math.round(red.cmd.hp / red.cmd.maxHp * 100) + '%' : 'destroyed') +
-      '  scrap ' + Math.floor(red.scrap) + '  turrets ' + turretsOf(red).length + '  squad ' + squadOf(red).length : '';
+      '  scrap ' + Math.floor(red.scrap) + '  turrets ' + turretsOf(red).length + '  squad ' + squadOf(red).length +
+      '  upgrades ' + (red.up.armour + red.up.loader + red.up.engine + red.up.gun) : '';
     let goal = '';
     if (G.mode === 'lms') goal = 'Last man standing — no respawns';
     else if (flags) {
@@ -954,13 +1008,27 @@
     b1.className = buildMode === 'wall' ? 'on' : '';
     b2.className = buildMode === 'turret' ? 'on' : '';
     b3.className = blue.healing ? 'on' : '';
+    if (upOpen && (blue.deadT > 0 || blue.healing || !atHome(blue))) upOpen = false;   // drive off and the panel closes
+    b4.className = upOpen ? 'on' : '';
+    upEl.style.display = upOpen ? 'block' : 'none';
+    if (upOpen) {
+      let txt = 'TANK UPGRADES            U to close\n';
+      UPGRADES.forEach((U, i) => {
+        const lv = blue.up[U.k];
+        txt += '\n' + (i + 1) + '  ' + U.name.padEnd(11) + '\u25A0'.repeat(lv) + '\u25A1'.repeat(UP_MAX - lv) + '  ' + U.per.padEnd(19) +
+          (lv >= UP_MAX ? 'max' : upCost(blue, U.k) + ' scrap');
+      });
+      if (upEl.textContent !== txt) upEl.textContent = txt;
+    }
 
     let prompt = '';
     if (blue.deadT > 0) prompt = 'Respawning in ' + Math.ceil(blue.deadT) + ' s';
     else if (blue.healing) prompt = 'Repairing — you can\'t move or fire (H to stop)';
+    else if (upOpen) prompt = 'Press 1-4 to buy an upgrade';
     else if (buildMode) prompt = (plan && !plan.ok ? plan.why + ' — ' : 'Left click: place ' + buildMode + ' — ') + (buildMode === 'wall' ? 'R: rotate, ' : '') + 'Q: cancel';
     else if (recruitableFor(blue, BOT.RECRUIT_RANGE)) prompt = 'Press E to recruit this tank';
     else if (hp < 0.5 && blue.scrap >= 1) prompt = 'Press H to repair with scrap';
+    else if (atHome(blue) && UPGRADES.some(U => blue.up[U.k] < UP_MAX && blue.scrap >= upCost(blue, U.k))) prompt = 'Press U for tank upgrades';
     promptEl.textContent = prompt;
     promptEl.style.display = prompt ? 'block' : 'none';
     if (msgT > 0) { msgT -= dt; if (msgT <= 0) msgEl.style.opacity = 0; }

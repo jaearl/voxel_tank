@@ -31,6 +31,7 @@ Creates `dist\Voxel Tank 0.1.0.exe` — a single portable file you can run or sh
 - E: recruit a knocked-out enemy tank you are next to
 - F / G: squad follows you / defends the spot you aim at (aim at one tank to order just that one)
 - H: repair your tank with scrap (you can't move or fire while repairing)
+- U: tank upgrades (armour, autoloader, engine, gun; three levels each), only at your home base; 1-4 buy while the panel is open
 - Esc: pause and open the settings (enemy numbers, spawn rate, costs, damage and more)
 
 The start menu also has the game mode: skirmish (no winner), capture the flag (drive onto the enemy flag and bring it home; first to the set number of captures wins) or last man standing (no respawns; lose your tank and you lose). The start menu has the same settings plus map size (small, medium, large, huge), a random-map option and the enemy commander toggle.
