@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Voxel Tank</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0d1114; color: #e8ecef;
+    font-family: "Consolas", "Menlo", "DejaVu Sans Mono", monospace; user-select: none; }
+  #c { width: 100vw; height: 100vh; display: block; background: #a1c7eb; }
+  #hud { position: fixed; inset: 0; pointer-events: none; }
+
+  /* camera crosshair (where you're aiming) */
+  #cross { position: absolute; left: 50%; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px;
+    border: 2px solid rgba(255,255,255,.85); border-radius: 50%; box-sizing: border-box;
+    box-shadow: 0 0 0 1px rgba(0,0,0,.35); }
+  #cross::after { content: ""; position: absolute; left: 50%; top: 50%; width: 2px; height: 2px; margin: -1px;
+    background: #fff; }
+  /* gun marker (where the barrel actually points) */
+  #gunmark { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; display: none; }
+  #gunmark::before, #gunmark::after { content: ""; position: absolute; background: #9fe870;
+    box-shadow: 0 0 0 1px rgba(0,0,0,.5); }
+  #gunmark::before { left: 6px; top: 0; width: 2px; height: 14px; }
+  #gunmark::after { left: 0; top: 6px; width: 14px; height: 2px; }
+
+  #reload { position: absolute; left: 50%; top: calc(50% + 30px); width: 70px; height: 4px; margin-left: -35px;
+    background: rgba(0,0,0,.45); }
+  #reloadfill { height: 100%; width: 100%; background: #9fe870; }
+
+  #info { position: absolute; left: 20px; bottom: 18px; font-size: 22px; font-weight: bold;
+    text-shadow: 0 2px 0 rgba(0,0,0,.5); }
+  #hp { position: absolute; left: 20px; bottom: 82px; width: 220px; height: 10px; background: rgba(0,0,0,.5);
+    box-shadow: 0 0 0 1px rgba(255,255,255,.25); }
+  #hpfill { height: 100%; width: 100%; background: #9fe870; }
+  #stats { position: absolute; left: 20px; bottom: 54px; font-size: 14px; white-space: pre; text-shadow: 0 1px 0 #000; }
+  #map { position: absolute; left: 16px; top: 14px; width: 180px; height: 180px; background: #000;
+    box-shadow: 0 0 0 2px rgba(0,0,0,.55); opacity: .92; }
+  #goal { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); font-size: 15px; text-align: center;
+    white-space: pre; text-shadow: 0 2px 0 rgba(0,0,0,.7); }
+  #foe { position: absolute; left: 16px; top: 202px; font-size: 12px; color: #ffb0a4; text-shadow: 0 1px 0 #000; white-space: pre; }
+  #build { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; gap: 10px; font-size: 14px; }
+  #build span { padding: 6px 12px; background: rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.2); white-space: nowrap; }
+  #build span.on { border-color: #9fe870; color: #9fe870; background: rgba(30,50,20,.7); }
+  #build b { color: #9fe870; }
+  #prompt { position: absolute; left: 50%; top: calc(50% + 52px); transform: translateX(-50%); display: none;
+    padding: 5px 12px; background: rgba(0,0,0,.5); font-size: 14px; white-space: nowrap; }
+  #msg { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); font-size: 17px; text-align: center;
+    text-shadow: 0 2px 0 rgba(0,0,0,.7); opacity: 0; transition: opacity .4s; white-space: nowrap; }
+  .tag { position: absolute; display: none; transform: translate(-50%, -100%); font-size: 11px; text-align: center;
+    text-shadow: 0 1px 0 #000; white-space: nowrap; }
+  .tagbar { width: 46px; height: 4px; margin: 2px auto 0; background: rgba(0,0,0,.55); }
+  .tagbar div { height: 100%; background: #e8a868; }
+  .tag.ally { color: #8fd4ff; } .tag.ally .tagbar div { background: #6cc4ff; }
+  .tag.red { color: #ff8a7a; } .tag.red .tagbar div { background: #ff4a3a; }
+  .tag.out { color: #ffb040; } .tag.out .tagbar div { background: #ffb040; }
+
+  #fps { position: absolute; right: 16px; top: 12px; font-size: 13px; opacity: .8; text-shadow: 0 1px 0 #000; }
+  #help { position: absolute; right: 16px; bottom: 60px; font-size: 12px; line-height: 1.6; text-align: right;
+    opacity: .85; text-shadow: 0 1px 0 #000; }
+  #help b { color: #9fe870; }
+
+  /* start / pause menu */
+  #overlay { position: fixed; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center;
+    background: rgba(13,17,20,.82); overflow-y: auto; padding: 22px 16px; box-sizing: border-box; user-select: none; }
+  #overlay h1 { font-size: 44px; letter-spacing: 9px; margin: 0 0 4px; color: #c9d68a; text-shadow: 3px 3px 0 #3c4426; }
+  #overlay .sub { opacity: .7; margin-bottom: 16px; letter-spacing: 2px; font-size: 13px; }
+  #menu { width: min(860px, 100%); }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .row .lab { color: #9fe870; margin-right: 4px; }
+  #overlay button { font: inherit; color: #e8ecef; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.3);
+    padding: 6px 14px; cursor: pointer; }
+  #overlay button:hover:not(:disabled) { border-color: #c9d68a; }
+  #overlay button.on { border-color: #9fe870; color: #9fe870; background: rgba(60,90,40,.45); }
+  #overlay button:disabled { opacity: .45; cursor: default; }
+  #overlay label.chk { display: flex; align-items: center; gap: 6px; margin-left: 8px; cursor: pointer; }
+  #settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 4px 28px; margin-bottom: 14px; }
+  .set { display: grid; grid-template-columns: 1fr 130px 34px; align-items: center; gap: 10px; font-size: 13px; padding: 2px 0; }
+  .set b { color: #9fe870; text-align: right; font-weight: normal; }
+  .set.off { opacity: .4; }
+  .set input { width: 100%; accent-color: #9fe870; }
+  #go { font-size: 19px !important; padding: 10px 30px !important; border: 2px solid #c9d68a !important; color: #c9d68a !important; }
+  #note { font-size: 12px; opacity: .7; min-height: 16px; margin-bottom: 10px; }
+  #keys { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 2px 28px; font-size: 13px; opacity: .9;
+    border-top: 1px solid rgba(255,255,255,.15); padding-top: 12px; }
+  #keys div { display: grid; grid-template-columns: 110px 1fr; gap: 10px; }
+  #keys span { color: #9fe870; text-align: right; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div id="cross"></div>
+  <div id="gunmark"></div>
+  <div id="reload"><div id="reloadfill"></div></div>
+  <div id="tags"></div>
+  <canvas id="map" width="180" height="180"></canvas>
+  <div id="foe"></div>
+  <div id="goal"></div>
+  <div id="msg"></div>
+  <div id="prompt"></div>
+  <div id="hp"><div id="hpfill"></div></div>
+  <div id="stats"></div>
+  <div id="info">0 km/h</div>
+  <div id="fps"></div>
+  <div id="build"><span id="b1"></span><span id="b2"></span><span id="b3"></span></div>
+  <div id="help">
+    <b>W A S D</b> drive &nbsp; <b>Mouse</b> aim &nbsp; <b>Left click</b> fire / place<br>
+    <b>1</b> wall &nbsp; <b>2</b> turret &nbsp; <b>R</b> rotate &nbsp; <b>Q</b> cancel &nbsp; <b>H</b> repair<br>
+    <b>E</b> recruit &nbsp; <b>F</b> follow &nbsp; <b>G</b> defend spot<br>
+    <b>Wheel</b> zoom &nbsp; <b>P</b> shadows &nbsp; <b>Esc</b> pause / settings
+  </div>
+</div>
+
+<div id="overlay">
+  <h1>VOXEL TANK</h1>
+  <div class="sub">build a base &middot; raise a squad &middot; outfight the enemy commander</div>
+  <div id="menu">
+    <div class="row" id="moderow">
+      <span class="lab">Game mode</span><span id="modes" class="row" style="margin:0"></span>
+    </div>
+    <div class="row" id="toprow">
+      <span class="lab">Map size</span><span id="sizes" class="row" style="margin:0"></span>
+      <label class="chk"><input type="checkbox" id="cmdchk"> Enemy commander</label>
+      <label class="chk"><input type="checkbox" id="rndchk"> Random map</label>
+    </div>
+    <div id="settings"></div>
+    <div class="row">
+      <button id="go">Start</button>
+      <button id="defaults">Reset to defaults</button>
+      <button id="quit">Quit to main menu</button>
+    </div>
+    <div id="note"></div>
+    <div id="keys">
+      <div><span>W A S D</span>drive and turn the hull</div>
+      <div><span>Mouse</span>look; the turret follows your aim</div>
+      <div><span>Left click</span>fire, or place while building</div>
+      <div><span>1 / 2</span>build a wall / gun turret where you aim</div>
+      <div><span>R / Q</span>rotate the wall / cancel building</div>
+      <div><span>H</span>repair with scrap (you can't move meanwhile)</div>
+      <div><span>E</span>recruit a knocked-out tank beside you</div>
+      <div><span>F / G</span>squad: follow me / defend where I aim</div>
+      <div><span>Wheel</span>zoom the camera</div>
+      <div><span>Esc</span>pause and open these settings</div>
+    </div>
+  </div>
+</div>
+
+<script src="js/math.js"></script>
+<script src="js/config.js"></script>
+<script src="js/mesher.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/world.js"></script>
+<script src="js/nav.js"></script>
+<script src="js/tank.js"></script>
+<script src="js/effects.js"></script>
+<script src="js/trees.js"></script>
+<script src="js/bots.js"></script>
+<script src="js/commander.js"></script>
+<script src="js/build.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

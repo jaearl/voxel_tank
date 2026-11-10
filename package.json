@@ -1,0 +1,31 @@
+{
+  "name": "voxel-tank",
+  "productName": "Voxel Tank",
+  "version": "0.1.0",
+  "description": "Voxel tank game",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "com.jared.voxeltank",
+    "productName": "Voxel Tank",
+    "files": [
+      "index.html",
+      "js/**/*",
+      "electron/**/*"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "portable",
+      "signAndEditExecutable": false
+    }
+  }
+}
